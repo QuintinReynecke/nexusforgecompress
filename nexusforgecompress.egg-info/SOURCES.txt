@@ -1,0 +1,8 @@
+README.md
+setup.py
+nexusforgecompress.egg-info/PKG-INFO
+nexusforgecompress.egg-info/SOURCES.txt
+nexusforgecompress.egg-info/dependency_links.txt
+nexusforgecompress.egg-info/requires.txt
+nexusforgecompress.egg-info/top_level.txt
+tests/test_core.py

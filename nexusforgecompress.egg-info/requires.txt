@@ -1,0 +1,5 @@
+numpy>=1.26.0
+zipnn>=0.1.1
+
+[entropy]
+neural_compression>=0.3.0

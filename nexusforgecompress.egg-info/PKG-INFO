@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: nexusforgecompress
+Version: 0.1.0
+Summary: Prototype for lossless AI data compression
+Author: Quintin Reynecke
+License: MIT
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: zipnn>=0.1.1
+Provides-Extra: entropy
+Requires-Dist: neural_compression>=0.3.0; extra == "entropy"
+Dynamic: author
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
