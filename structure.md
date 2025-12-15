@@ -1,23 +1,33 @@
+# Project Structure
+
+This document outlines the directory structure and the purpose of key files in the project.
+
+```
 nexusforgecompress-prototype/
-├── LICENSE                 # MIT
-├── README.md               # With disclaimer, roadmap, benchmarks
-├── setup.py                # Updated
-├── requirements.txt        # With versions, notes
-├── CONTRIBUTING.md         # Guidelines
-├── SECURITY.md             # Vuln reporting
-├── CHANGELOG.md            # Semantic versions
-├── nfc_prototype/          # Package
-│   ├── __init__.py
-│   ├── core.py             # Hardened with 64-bit, JSON, streaming; fixed zipnn usage
-│   ├── utils.py            # Helpers
-│   └── adapters/           # Placeholder
-│       └── __init__.py
-├── tests/                  # Expanded (fuzz-like, corruption)
-│   ├── __init__.py
-│   └── test_core.py
-├── examples/               # Demo
-│   └── example.py
-├── bench/                  # Reproducible benchmarks
-│   ├── download_model.sh   # Sample data
-│   └── run_bench.py        # Fair comparisons
-└── .gitignore              # Standard
+├── .github/
+│   └── workflows/
+│       └── ci.yml          # GitHub Actions workflow for Continuous Integration.
+├── bench/
+│   ├── download_model.sh   # Script to download models for benchmarking.
+│   └── run_bench.py        # Runs benchmark tests.
+├── examples/
+│   └── example.py          # Demonstrates basic usage of the library.
+├── nfc_prototype/
+│   ├── __init__.py         # Makes 'nfc_prototype' a Python package.
+│   ├── core.py             # Core compression/decompression logic, with v0.2 entropy coding.
+│   └── utils.py            # Utility functions.
+├── tests/
+│   ├── test_core.py        # Core unit tests.
+│   ├── v010_test.py        # Tests for v0.1.0 features.
+│   └── v020_test.py        # Tests for v0.2.0 features.
+├── .gitignore              # Specifies files to be ignored by Git.
+├── CHANGELOG.md            # A log of all changes for each version.
+├── CONTRIBUTING.md         # Guidelines for contributing to the project.
+├── LICENSE                 # Project license file.
+├── README.md               # General information and instructions for the project.
+├── requirements.txt        # A list of Python packages required by the project.
+├── SECURITY.md             # Security policy and reporting instructions.
+├── setup.py                # script for building and distributing the package.
+├── structure.md            # This file, explaining the project structure.
+└── TECHNOLOGY_STACK.md     # A document listing the project's technologies.
+```
