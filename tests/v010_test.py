@@ -96,7 +96,7 @@ def run_tests():
     out_nfc = 'large_test.nfc'
     proto.compress_stream(large_file, out_nfc, chunk_size=1024*1024*20)  # Larger chunk to ensure full .nfc
     out_dec = 'large_dec.bin'
-    proto.decompress_stream(out_nfc, out_dec, chunk_size=1024*1024*20)
+    proto.decompress_stream(out_nfc, out_dec)
     with open(large_file, 'rb') as f1, open(out_dec, 'rb') as f2:
         assert f1.read() == f2.read(), "Streaming not lossless"
     print("     ✅ Passed: Lossless streaming")
@@ -111,7 +111,7 @@ def run_tests():
     with open(out_nfc, 'rb') as fin, open(partial_nfc, 'wb') as fout:
         fout.write(fin.read(1024 * 1024 * 5))  # Partial 5MB
     try:
-        proto.decompress_stream(partial_nfc, 'partial_dec.bin', chunk_size=1024*1024*20)
+        proto.decompress_stream(partial_nfc, 'partial_dec.bin')
         assert False, "Should fail on partial"
     except Exception:
         print("     ✅ Passed: Detected incomplete file")

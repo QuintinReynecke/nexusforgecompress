@@ -52,7 +52,7 @@ try:
 
     parsed_metadata = json.loads(extracted_metadata_json_bytes)
     assert parsed_metadata.get("format_hint") == "bytes", "Metadata format_hint incorrect"
-    assert parsed_metadata.get("compression_stack") == ["blosc"], "Metadata compression_stack incorrect"
+    assert parsed_metadata.get("compression_stack") == ["blosc_zstd"], "Metadata compression_stack incorrect"
     print(f"     ✅ Passed: Metadata extracted and parsed correctly: {parsed_metadata}")
 
     # Now proceed with full decompress and check data integrity

@@ -1,7 +1,11 @@
 # Changelog
 
 ## v0.3.0 (2025-12-17)
+- **Fix:** Removed unexpected `chunk_size` argument from `decompress_stream` calls in `v010_test.py`.
+- **Fix:** Updated metadata `compression_stack` assertion in `v020_test.py` to correctly expect `["blosc_zstd"]`.
+- **Fix:** Explicitly set `current_offset = 34` in `decompress` method within `nfc_prototype/core.py` to resolve `JSONDecodeError` in `v030_test.py` by ensuring accurate metadata parsing.
 - **Fix:** Restored the test logic for `v020_test.py` after an accidental deletion, ensuring the correct application of `sys.path.insert(0, ...)` and `metadata_start_offset = 34` for proper local package loading and metadata handling.
+- **Fix:** Ensured `v030_test.py` correctly loads the local `nfc_prototype` module by adding `sys.path.insert(0, ...)` to prioritize local package loading.
 - **Fix:** Corrected `v020_test.py` to prioritize loading the local `nfc_prototype` package over the installed `site-packages` version by using `sys.path.insert(0, ...)` instead of `sys.path.append(...)`. This ensures test execution reflects changes in local development files.
 - **Fix:** Refined the calculation of `self.calculated_header_len` in `nfc_prototype/core.py` by removing a duplicate `2 +` for reserved bytes. This ensures the header length is precisely 34 bytes, correctly resolving metadata parsing issues during decompression, preventing `ValueError: Metadata length is larger than remaining binary data` and `json.decoder.JSONDecodeError` by guaranteeing metadata is sliced from the correct offset.
 - **Major Change:** Replaced the core compression library from `zipnn` to `blosc`.
@@ -10,6 +14,8 @@
 - **Refactor:** The `core.py` module has been completely rewritten to use `blosc`.
 - **Fix:** This change resolves the `ValueError: Support only uint32 with NumPy format` error.
 - **Build:** `setup.py` dependencies have been updated to remove `zipnn`, `neuralcompression`, `torch`, and `scipy`, and add `blosc`.
+- **Feature:** Refactored `decompress_stream` in `nfc_prototype/core.py` for true streaming, enabling efficient processing of large compressed files without loading the entire file into memory.
+- **Feature:** Added Blosc codec selection (`zstd`, `lz4`, `lz4hc`, `zlib`) via the `codec` parameter in `NFCPrototype.__init__`, allowing users to choose different compression algorithms for finer control over compression ratio and speed.
 
 ## v0.2.2 (2025-12-17)
 - **Fix:** Refactored `compress` and `decompress` methods to correctly handle different `numpy` `dtypes`. This resolves an issue where tests for various `dtypes` were failing. The fix involves removing duplicated code, ensuring metadata is correctly serialized, and properly using `zlib` as a fallback for `zipnn` unsupported `dtypes`.
