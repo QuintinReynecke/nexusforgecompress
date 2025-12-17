@@ -53,7 +53,11 @@ Use GitHub Issues or Milestones to mark these off as completed.
 - **v0.2 (Completed):** NeuralCompression entropy coders.
 - **v0.3 (Completed):** Indexed block framing for partial decode (enabling true random access).
 - **v0.4 (Completed):** LMCompress-style prediction.
-- **v0.5 (In Progress):** [Placeholder for next major feature]
+- **v0.5 (Pending Verification):** Enhanced Prediction and Blosc Configuration
+    - Dynamic `created_at` timestamp in metadata.
+    - Customizable `prediction_strategy` (`delta`, `none`).
+    - Configurable Blosc `filters` parameter.
+    - Helper methods for metadata extraction.
 - **v1.0:** Full AI engine.
 - **v1.1:** Rust CLI.
 - **v2.0:** Distributed graph-based chunk maps.

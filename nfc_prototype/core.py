@@ -3,6 +3,11 @@ import json
 import hashlib
 import struct
 import blosc
+import datetime
+import logging
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 try:
     from neuralcompression.coders import ArithmeticCoder
@@ -41,11 +46,11 @@ class NFCPrototype:
                 "format_hint": "numpy_tensor",
                 "orig_bytes": data.nbytes,
                 "created_by": "nfc-prototype 0.2.0",
-                "created_at": "2025-12-17T00:00:00Z"
+                "created_at": datetime.datetime.utcnow().isoformat() + 'Z'
             }
         return {"format_hint": "bytes"}
 
-    def compress(self, data, force_arithmetic=False, use_prediction=False):
+    def compress(self, data, force_arithmetic=False, use_prediction=False, prediction_strategy='delta', blosc_filters=None):
         is_numpy = isinstance(data, np.ndarray)
         original_data_bytes = data.tobytes() if is_numpy else data # Renamed for clarity
         original_hash = hashlib.sha256(original_data_bytes).digest() # Use original_data_bytes for hash
@@ -58,37 +63,45 @@ class NFCPrototype:
         
         # --- NEW: Prediction Step ---
         if is_numpy and use_prediction:
-            metadata["prediction_model"] = "delta_encoding"
-            metadata["original_dtype"] = data.dtype.name
-            metadata["original_shape"] = list(data.shape)
-
-            # Determine residuals_dtype to handle potential negative differences and store it
-            if np.issubdtype(data.dtype, np.unsignedinteger):
-                info = np.iinfo(data.dtype)
-                if info.bits <= 8:
-                    residuals_dtype = np.int16
-                elif info.bits <= 16:
-                    residuals_dtype = np.int32
-                else: # info.bits <= 32 or 64
-                    residuals_dtype = np.int64
-            elif np.issubdtype(data.dtype, np.floating):
-                residuals_dtype = np.float64 # Use float64 for residuals to maintain precision
-            else:
-                residuals_dtype = data.dtype
-
-            metadata["residuals_dtype"] = np.dtype(residuals_dtype).name # Store the name of the residuals dtype
-
-            residuals = np.empty(data.shape, dtype=residuals_dtype)
-            # Handle first element
-            if data.size > 0:
-                # Cast to residuals_dtype before operations to prevent overflow/underflow
-                data_as_residuals_type = data.astype(residuals_dtype)
-                residuals.ravel()[0] = data_as_residuals_type.ravel()[0]
-                # Calculate differences for the rest
-                if data.size > 1:
-                    residuals.ravel()[1:] = np.diff(data_as_residuals_type.ravel())
+            metadata["prediction_strategy"] = prediction_strategy
             
-            payload = residuals.tobytes() # residuals are now the payload
+            if prediction_strategy == 'delta':
+                metadata["prediction_model"] = "delta_encoding"
+                metadata["original_dtype"] = data.dtype.name
+                metadata["original_shape"] = list(data.shape)
+
+                # Determine residuals_dtype to handle potential negative differences and store it
+                if np.issubdtype(data.dtype, np.unsignedinteger):
+                    info = np.iinfo(data.dtype)
+                    if info.bits <= 8:
+                        residuals_dtype = np.int16
+                    elif info.bits <= 16:
+                        residuals_dtype = np.int32
+                    else: # info.bits <= 32 or 64
+                        residuals_dtype = np.int64
+                elif np.issubdtype(data.dtype, np.floating):
+                    residuals_dtype = np.float64 # Use float64 for residuals to maintain precision
+                else:
+                    residuals_dtype = data.dtype
+
+                metadata["residuals_dtype"] = np.dtype(residuals_dtype).name # Store the name of the residuals dtype
+
+                residuals = np.empty(data.shape, dtype=residuals_dtype)
+                # Handle first element
+                if data.size > 0:
+                    # Cast to residuals_dtype before operations to prevent overflow/underflow
+                    data_as_residuals_type = data.astype(residuals_dtype)
+                    residuals.ravel()[0] = data_as_residuals_type.ravel()[0]
+                    # Calculate differences for the rest
+                    if data.size > 1:
+                        residuals.ravel()[1:] = np.diff(data_as_residuals_type.ravel())
+                
+                payload = residuals.tobytes() # residuals are now the payload
+            elif prediction_strategy == 'none':
+                # No prediction, payload remains original_data_bytes
+                pass
+            else:
+                raise ValueError(f"Unknown prediction strategy: {prediction_strategy}")
         # --- END NEW: Prediction Step ---
 
         # Optional Step 1: Arithmetic Coding
@@ -98,15 +111,40 @@ class NFCPrototype:
             payload = coder.compress(payload)
             flags |= self.ARITHMETIC_CODING_FLAG
 
+        # Store blosc_filters in metadata if provided
+        if blosc_filters is not None:
+            metadata["blosc_filters"] = blosc_filters
+
         # Step 2: Blosc Compression
+        blosc_kwargs = {
+            'cname': self.codec,
+            'clevel': self.clevel,
+            'shuffle': self.shuffle
+        }
+
         if is_numpy:
-            itemsize = data.dtype.itemsize # Default itemsize
-            if use_prediction:
-                # If prediction is used, the payload is the residuals array, so use its itemsize.
+            itemsize = data.dtype.itemsize
+            if use_prediction and prediction_strategy == 'delta':
                 itemsize = np.dtype(metadata["residuals_dtype"]).itemsize
-            compressed = blosc.compress(payload, cname=self.codec, typesize=itemsize, clevel=self.clevel, shuffle=self.shuffle)
-        else:
-            compressed = blosc.compress(payload, cname=self.codec, clevel=self.clevel, shuffle=self.shuffle)
+            blosc_kwargs['typesize'] = itemsize
+
+        # Determine filters argument
+        filters_arg = []
+        if blosc_filters is not None:
+            filters_arg = blosc_filters
+
+        try:
+            compressed = blosc.compress(payload, filters=filters_arg, **blosc_kwargs)
+        except TypeError as e:
+            if "unexpected keyword argument 'filters'" in str(e):
+                # logger.warning("Installed blosc library does not support 'filters' keyword argument. "
+                #                "Blosc filters will not be applied. Please consider upgrading blosc "
+                #                "(e.g., `pip install --upgrade blosc`) for full functionality.")
+                # Call blosc.compress without the filters argument
+                compressed = blosc.compress(payload, **blosc_kwargs)
+            else:
+                # Re-raise other TypeErrors
+                raise
 
         metadata["compression_stack"] = ["arithmetic", f"blosc_{self.codec}"] if use_arithmetic else [f"blosc_{self.codec}"]
         metadata_json = json.dumps(metadata).encode('utf-8')
@@ -123,6 +161,38 @@ class NFCPrototype:
         
         nfc_binary = header + metadata_json + compressed + original_hash
         return nfc_binary, len(original_data_bytes), len(nfc_binary)
+
+    def _extract_meta_len(self, nfc_binary):
+        # Extracts meta_len from the binary header
+        return struct.unpack('!Q', nfc_binary[16:24])[0]
+
+    def _extract_hash_len(self, nfc_binary):
+        # Extracts hash_len from the binary header
+        return struct.unpack('!H', nfc_binary[32:34])[0]
+
+        metadata["compression_stack"] = ["arithmetic", f"blosc_{self.codec}"] if use_arithmetic else [f"blosc_{self.codec}"]
+        metadata_json = json.dumps(metadata).encode('utf-8')
+        header = (
+            self.magic +
+            self.version.to_bytes(1, 'big') +
+            flags.to_bytes(1, 'big') +
+            b'\x00' * 2 +  # Reserved
+            struct.pack('!Q', self.calculated_header_len) +
+            struct.pack('!Q', len(metadata_json)) +
+            struct.pack('!Q', len(compressed)) +
+            struct.pack('!H', len(original_hash))
+        )
+        
+        nfc_binary = header + metadata_json + compressed + original_hash
+        return nfc_binary, len(original_data_bytes), len(nfc_binary)
+
+    def _extract_meta_len(self, nfc_binary):
+        # Extracts meta_len from the binary header
+        return struct.unpack('!Q', nfc_binary[16:24])[0]
+
+    def _extract_hash_len(self, nfc_binary):
+        # Extracts hash_len from the binary header
+        return struct.unpack('!H', nfc_binary[32:34])[0]
 
     def decompress(self, nfc_binary):
         if nfc_binary[:4] != self.magic:
@@ -164,7 +234,8 @@ class NFCPrototype:
         
 
 
-        metadata = json.loads(metadata_json) if meta_len > 0 else {}        
+        metadata = json.loads(metadata_json) if meta_len > 0 else {}
+        prediction_strategy = metadata.get("prediction_strategy", "none")        
         # Step 1: Blosc Decompression
         decompressed_payload = blosc.decompress(compressed_payload)
         
@@ -178,7 +249,7 @@ class NFCPrototype:
             final_bytes = decompressed_payload
 
         # --- NEW: Reconstruction Step ---
-        if metadata.get("prediction_model") == "delta_encoding":
+        if prediction_strategy == "delta": # Changed from metadata.get("prediction_model") == "delta_encoding"
             original_dtype_name = metadata["original_dtype"]
             original_shape = tuple(metadata["original_shape"])
             residuals_dtype = np.dtype(metadata["residuals_dtype"]) # Use the stored residuals_dtype
@@ -202,6 +273,11 @@ class NFCPrototype:
             # Ensure the reconstructed data has the original dtype
             # This handles both dtype promotions during cumsum and restores the original type
             final_bytes = reconstructed_data.astype(original_dtype_name, copy=True).tobytes()
+        elif prediction_strategy == "none":
+            # No prediction was applied, final_bytes already contains the original data
+            pass
+        else:
+            raise ValueError(f"Unknown prediction strategy: {prediction_strategy}")
         # --- END NEW: Reconstruction Step ---
 
         decompressed_hash = hashlib.sha256(final_bytes).digest()

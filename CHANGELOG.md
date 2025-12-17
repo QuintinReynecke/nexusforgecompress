@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.5.0 (2025-12-17)
+- **Fix:** Corrected Blosc filters test in `v050_test.py` to use integer representation `4` for `BLOSCDELTA` instead of the non-existent `blosc.BLOSCDELTA` attribute.
+
 ## v0.3.0 (2025-12-17)
 - **Fix:** Removed unexpected `chunk_size` argument from `decompress_stream` calls in `v010_test.py`.
 - **Fix:** Updated metadata `compression_stack` assertion in `v020_test.py` to correctly expect `["blosc_zstd"]`.
