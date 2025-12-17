@@ -14,13 +14,14 @@ nexusforgecompress-prototype/
 │   └── example.py          # Demonstrates basic usage of the library.
 ├── nfc_prototype/
 │   ├── __init__.py         # Makes 'nfc_prototype' a Python package.
-│   ├── core.py             # Core compression/decompression logic, with v0.2 entropy coding.
+│   ├── core.py             # Core compression/decompression logic, including codec selection, entropy coding, and prediction.
 │   └── utils.py            # Utility functions.
 ├── tests/
 │   ├── test_core.py        # Core unit tests.
 │   ├── v010_test.py        # Tests for v0.1.0 features.
 │   ├── v020_test.py        # Tests for v0.2.0 features.
-│   └── v030_test.py        # Tests for v0.3.0 streaming features.
+│   ├── v030_test.py        # Tests for v0.3.0 streaming features.
+│   └── v040_test.py        # Tests for v0.4.0 prediction features.
 ├── .gitignore              # Specifies files to be ignored by Git.
 ├── CHANGELOG.md            # A log of all changes for each version.
 ├── CONTRIBUTING.md         # Guidelines for contributing to the project.

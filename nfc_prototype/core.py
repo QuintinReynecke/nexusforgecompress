@@ -45,16 +45,52 @@ class NFCPrototype:
             }
         return {"format_hint": "bytes"}
 
-    def compress(self, data, force_arithmetic=False):
+    def compress(self, data, force_arithmetic=False, use_prediction=False):
         is_numpy = isinstance(data, np.ndarray)
-        data_bytes = data.tobytes() if is_numpy else data
-        original_hash = hashlib.sha256(data_bytes).digest()
+        original_data_bytes = data.tobytes() if is_numpy else data # Renamed for clarity
+        original_hash = hashlib.sha256(original_data_bytes).digest() # Use original_data_bytes for hash
+        # print(f"DEBUG: compress - Calculated original_hash: {original_hash.hex()}")
 
         metadata = self._get_metadata(data)
         
         flags = 0
-        payload = data_bytes
+        payload = original_data_bytes # Default payload
         
+        # --- NEW: Prediction Step ---
+        if is_numpy and use_prediction:
+            metadata["prediction_model"] = "delta_encoding"
+            metadata["original_dtype"] = data.dtype.name
+            metadata["original_shape"] = list(data.shape)
+
+            # Determine residuals_dtype to handle potential negative differences and store it
+            if np.issubdtype(data.dtype, np.unsignedinteger):
+                info = np.iinfo(data.dtype)
+                if info.bits <= 8:
+                    residuals_dtype = np.int16
+                elif info.bits <= 16:
+                    residuals_dtype = np.int32
+                else: # info.bits <= 32 or 64
+                    residuals_dtype = np.int64
+            elif np.issubdtype(data.dtype, np.floating):
+                residuals_dtype = np.float64 # Use float64 for residuals to maintain precision
+            else:
+                residuals_dtype = data.dtype
+
+            metadata["residuals_dtype"] = np.dtype(residuals_dtype).name # Store the name of the residuals dtype
+
+            residuals = np.empty(data.shape, dtype=residuals_dtype)
+            # Handle first element
+            if data.size > 0:
+                # Cast to residuals_dtype before operations to prevent overflow/underflow
+                data_as_residuals_type = data.astype(residuals_dtype)
+                residuals.ravel()[0] = data_as_residuals_type.ravel()[0]
+                # Calculate differences for the rest
+                if data.size > 1:
+                    residuals.ravel()[1:] = np.diff(data_as_residuals_type.ravel())
+            
+            payload = residuals.tobytes() # residuals are now the payload
+        # --- END NEW: Prediction Step ---
+
         # Optional Step 1: Arithmetic Coding
         use_arithmetic = force_arithmetic and ArithmeticCoder is not None
         if use_arithmetic:
@@ -64,7 +100,10 @@ class NFCPrototype:
 
         # Step 2: Blosc Compression
         if is_numpy:
-            itemsize = data.dtype.itemsize
+            itemsize = data.dtype.itemsize # Default itemsize
+            if use_prediction:
+                # If prediction is used, the payload is the residuals array, so use its itemsize.
+                itemsize = np.dtype(metadata["residuals_dtype"]).itemsize
             compressed = blosc.compress(payload, cname=self.codec, typesize=itemsize, clevel=self.clevel, shuffle=self.shuffle)
         else:
             compressed = blosc.compress(payload, cname=self.codec, clevel=self.clevel, shuffle=self.shuffle)
@@ -83,7 +122,7 @@ class NFCPrototype:
         )
         
         nfc_binary = header + metadata_json + compressed + original_hash
-        return nfc_binary, len(data_bytes), len(nfc_binary)
+        return nfc_binary, len(original_data_bytes), len(nfc_binary)
 
     def decompress(self, nfc_binary):
         if nfc_binary[:4] != self.magic:
@@ -138,13 +177,43 @@ class NFCPrototype:
         else:
             final_bytes = decompressed_payload
 
+        # --- NEW: Reconstruction Step ---
+        if metadata.get("prediction_model") == "delta_encoding":
+            original_dtype_name = metadata["original_dtype"]
+            original_shape = tuple(metadata["original_shape"])
+            residuals_dtype = np.dtype(metadata["residuals_dtype"]) # Use the stored residuals_dtype
+            
+            # print(f"DEBUG: decompress - original_dtype_name: {original_dtype_name}, original_shape: {original_shape}, residuals_dtype: {residuals_dtype}")
+
+            # Convert final_bytes (decompressed residuals) back to numpy array with its stored dtype
+            residuals_array = np.frombuffer(final_bytes, dtype=residuals_dtype)
+            # print(f"DEBUG: decompress - residuals_array (first 5): {residuals_array.flatten()[:5]}")
+            
+            # Perform cumulative sum to reconstruct the original data
+            # Use original floating point precision for float types to prevent precision issues from float64 intermediates,
+            # int64 for integers to prevent overflow.
+            if np.issubdtype(residuals_dtype, np.floating):
+                cumsum_dtype = residuals_dtype # Use the residuals_dtype directly
+            else:
+                cumsum_dtype = np.int64 # For integers, still promote to int64 to prevent overflow
+            reconstructed_data = np.cumsum(residuals_array.astype(cumsum_dtype), dtype=cumsum_dtype).reshape(original_shape)
+            # print(f"DEBUG: decompress - reconstructed_data (first 5): {reconstructed_data.flatten()[:5]}")
+            
+            # Ensure the reconstructed data has the original dtype
+            # This handles both dtype promotions during cumsum and restores the original type
+            final_bytes = reconstructed_data.astype(original_dtype_name, copy=True).tobytes()
+        # --- END NEW: Reconstruction Step ---
+
         decompressed_hash = hashlib.sha256(final_bytes).digest()
+        # print(f"DEBUG: decompress - Extracted original_hash: {original_hash.hex()}")
+        # print(f"DEBUG: decompress - Calculated decompressed_hash: {decompressed_hash.hex()}")
+        # print(f"DEBUG: decompress - original_hash length: {len(original_hash)}, decompressed_hash length: {len(decompressed_hash)}")
         if decompressed_hash != original_hash:
             raise ValueError("Corruption detected! Hash mismatch.")
             
         if metadata.get("format_hint") == "numpy_tensor":
             np_dtype = np.dtype(metadata["dtype"])
-            if metadata.get("endianness") and metadata["endianness"] != np_dtype.byteorder:
+            if metadata.get("endianness") and np_dtype.byteorder != metadata["endianness"]:
                 np_dtype = np_dtype.newbyteorder(metadata["endianness"])
             return np.frombuffer(final_bytes, dtype=np_dtype).reshape(metadata["shape"])
             

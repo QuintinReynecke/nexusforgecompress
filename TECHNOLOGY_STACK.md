@@ -8,10 +8,7 @@ This document outlines the core technologies, libraries, and tools used in the `
 |---|---|---|
 | [numpy](https://numpy.org/) | `>=1.26.0` | The fundamental package for scientific computing with Python. Used for all tensor and numerical operations. |
 | [blosc](https://www.blosc.org/) | `>=1.11.1` | A high-performance compressor optimized for binary data, especially effective for numerical and AI datasets. Replaced `zipnn` in v0.3.0. |
-
-## Future Dependencies (Roadmap)
-
-The following libraries are not used in the current version but are planned for future development milestones.
+| [neuralcompression](https://github.com/facebookresearch/NeuralCompression) | `>=0.2.0` | (Optional, via `[full]` extra) Provides advanced entropy coding techniques, such as arithmetic coding. |
 
 ## Development & Build Tools
 

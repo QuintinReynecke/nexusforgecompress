@@ -1,5 +1,5 @@
 # NexusForgeCompress-Prototype (NFC-Prototype)
-Prototype scaffolding for a lossless compression framework targeting AI data. This is the architectural skeleton—this version integrates Blosc for basic tensor compression, with hooks for NeuralCompression entropy. Full fusions (e.g., LMCompress semantics, SpQR sparsity) are on the roadmap. Feedback welcome!
+Prototype scaffolding for a lossless compression framework targeting AI data. This is the architectural skeleton—this version integrates Blosc for basic tensor compression with codec selection, NeuralCompression for entropy coding, and LMCompress-style prediction for improved ratios. Full fusions (e.g., SpQR sparsity) are on the roadmap. Feedback welcome!
 
 
 ## Disclaimer
@@ -21,14 +21,16 @@ Current .nfc format does NOT provide true random access yet; this ships in v0.3+
 
 It is recommended to use a virtual environment.
 
-### 1. (Optional, but Recommended) Install PyTorch
-It is recommended to install PyTorch before installing `nexusforgecompress`. Please follow the official instructions on the [PyTorch website](https://pytorch.org/get-started/locally/) to install the version that is best for your system (e.g., with or without CUDA support).
-
-### 2. Install `nexusforgecompress`
-You can install the package and its dependencies with a single command:
+### Install `nexusforgecompress`
+You can install the base package and its core dependencies (numpy, blosc) with:
 ```bash
 pip install .
 ```
+To include optional dependencies for advanced features (e.g., arithmetic coding via neuralcompression), install with the `full` extra:
+```bash
+pip install .[full]
+```
+Note: `neuralcompression` might have its own dependencies, such as PyTorch. Refer to `neuralcompression`'s documentation for details.
 
 
 
@@ -48,9 +50,10 @@ Run `bench/run_bench.py` for reproducible results (e.g., vs zstd/snappy on synth
 Use GitHub Issues or Milestones to mark these off as completed.
 
 - **v0.1 (Completed):** Blosc integration + robust container + streaming.
-- **v0.2 (In Progress):** NeuralCompression entropy coders.
-- **v0.3:** Indexed block framing for partial decode (enabling true random access).
-- **v0.4:** LMCompress-style prediction.
+- **v0.2 (Completed):** NeuralCompression entropy coders.
+- **v0.3 (Completed):** Indexed block framing for partial decode (enabling true random access).
+- **v0.4 (Completed):** LMCompress-style prediction.
+- **v0.5 (In Progress):** [Placeholder for next major feature]
 - **v1.0:** Full AI engine.
 - **v1.1:** Rust CLI.
 - **v2.0:** Distributed graph-based chunk maps.

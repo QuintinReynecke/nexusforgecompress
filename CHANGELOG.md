@@ -17,6 +17,14 @@
 - **Feature:** Refactored `decompress_stream` in `nfc_prototype/core.py` for true streaming, enabling efficient processing of large compressed files without loading the entire file into memory.
 - **Feature:** Added Blosc codec selection (`zstd`, `lz4`, `lz4hc`, `zlib`) via the `codec` parameter in `NFCPrototype.__init__`, allowing users to choose different compression algorithms for finer control over compression ratio and speed.
 
+## v0.4.0 (2025-12-17)
+- **Feature:** Implemented LMCompress-style prediction using delta encoding for `numpy.ndarray` data.
+  - Added `use_prediction` parameter to `compress` method to enable/disable prediction.
+  - Automatically handles `dtype` promotion for residuals to preserve lossless integrity.
+  - Updated `decompress` method to reconstruct original data from residuals.
+- **Fix:** Resolved hash mismatch for floating-point data with delta encoding by promoting `residuals_dtype` to `float64` for higher precision during prediction calculations.
+- **Test:** Added `v040_test.py` to verify lossless compression/decompression with prediction and evaluate compression ratio improvements.
+
 ## v0.2.2 (2025-12-17)
 - **Fix:** Refactored `compress` and `decompress` methods to correctly handle different `numpy` `dtypes`. This resolves an issue where tests for various `dtypes` were failing. The fix involves removing duplicated code, ensuring metadata is correctly serialized, and properly using `zlib` as a fallback for `zipnn` unsupported `dtypes`.
 
