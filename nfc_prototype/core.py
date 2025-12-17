@@ -10,12 +10,13 @@ except ImportError:
     ArithmeticCoder = None
 
 class NFCPrototype:
-    def __init__(self, clevel=9, shuffle=blosc.SHUFFLE):
+    def __init__(self, clevel=9, shuffle=blosc.SHUFFLE, codec='zstd'):
         self.magic = b'NFC2'
         self.version = 2
         self.hash_algo = 'sha256'
         self.clevel = clevel
         self.shuffle = shuffle
+        self.codec = codec
         self.ARITHMETIC_CODING_FLAG = 0x01
 
         self.calculated_header_len = (
@@ -64,11 +65,11 @@ class NFCPrototype:
         # Step 2: Blosc Compression
         if is_numpy:
             itemsize = data.dtype.itemsize
-            compressed = blosc.compress(payload, typesize=itemsize, clevel=self.clevel, shuffle=self.shuffle)
+            compressed = blosc.compress(payload, cname=self.codec, typesize=itemsize, clevel=self.clevel, shuffle=self.shuffle)
         else:
-            compressed = blosc.compress(payload, clevel=self.clevel, shuffle=self.shuffle)
+            compressed = blosc.compress(payload, cname=self.codec, clevel=self.clevel, shuffle=self.shuffle)
 
-        metadata["compression_stack"] = ["arithmetic", "blosc"] if use_arithmetic else ["blosc"]
+        metadata["compression_stack"] = ["arithmetic", f"blosc_{self.codec}"] if use_arithmetic else [f"blosc_{self.codec}"]
         metadata_json = json.dumps(metadata).encode('utf-8')
         header = (
             self.magic +
@@ -103,7 +104,7 @@ class NFCPrototype:
 
 
         
-        current_offset = int(header_len) # Should be 34        
+        current_offset = 34
         
         
         # Add explicit boundary checks for each slice
@@ -156,25 +157,47 @@ class NFCPrototype:
                 nfc_chunk, _, _ = self.compress(chunk, force_arithmetic=False)
                 fout.write(nfc_chunk)
 
-    def decompress_stream(self, in_path, out_path, chunk_size=None):
+    def decompress_stream(self, in_path, out_path):
         with open(in_path, 'rb') as fin, open(out_path, 'wb') as fout:
-            buffer = fin.read() 
-            offset = 0
-            while offset < len(buffer):
-                if buffer[offset:offset+4] != self.magic:
-                    raise ValueError("Invalid magic number in stream")
-                
-                header_len = struct.unpack('!Q', buffer[offset+8:offset+16])[0]
-                meta_len = struct.unpack('!Q', buffer[offset+16:offset+24])[0]
-                payload_len = struct.unpack('!Q', buffer[offset+24:offset+32])[0]
-                hash_len = struct.unpack('!H', buffer[offset+32:offset+34])[0]
-                
-                total_len = int(header_len + meta_len + payload_len + hash_len)
-                
-                if offset + total_len > len(buffer):
-                    raise ValueError("Incomplete NFC chunk in stream")
+            while True:
+                # Read enough to determine the size of the next NFC block
+                # We need magic (4) + version (1) + flags (1) + reserved (2) + header_len (8) + meta_len (8) + payload_len (8) + hash_len (2) = 34 bytes
+                initial_bytes = fin.read(34)
+                if not initial_bytes:
+                    break # End of file
 
-                nfc_chunk = buffer[offset:offset + total_len]
-                decompressed = self.decompress(nfc_chunk)
-                fout.write(decompressed)
-                offset += total_len
+                if len(initial_bytes) < 34:
+                    raise ValueError("Incomplete NFC block header in stream")
+
+                # Parse header fields from initial_bytes
+                if initial_bytes[:4] != self.magic:
+                    raise ValueError(f"Invalid magic. Expected {self.magic}, got {initial_bytes[:4]} in stream")
+
+                version = initial_bytes[4]
+                if version != self.version:
+                    raise ValueError(f"Version mismatch. Expected {self.version}, got {version} in stream")
+                
+                # Extract header lengths
+                # header_len is always 34 for v2, but we read it to be consistent with future versions
+                header_len_parsed = struct.unpack('!Q', initial_bytes[8:16])[0]
+                meta_len = struct.unpack('!Q', initial_bytes[16:24])[0]
+                payload_len = struct.unpack('!Q', initial_bytes[24:32])[0]
+                hash_len = struct.unpack('!H', initial_bytes[32:34])[0]
+
+                # Calculate total size of the current NFC block
+                total_block_size = int(header_len_parsed + meta_len + payload_len + hash_len)
+
+                # Read the rest of the current NFC block
+                # This accounts for the 34 bytes already read in initial_bytes
+                remaining_to_read = total_block_size - len(initial_bytes)
+                if remaining_to_read < 0:
+                    raise ValueError("Calculated total block size is smaller than initial header read. This indicates an invalid header.")
+
+                remaining_block_bytes = fin.read(remaining_to_read)
+                if len(remaining_block_bytes) != remaining_to_read:
+                    raise ValueError("Incomplete NFC block in stream")
+
+                nfc_block = initial_bytes + remaining_block_bytes
+                
+                decompressed_data = self.decompress(nfc_block)
+                fout.write(decompressed_data)
