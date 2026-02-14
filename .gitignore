@@ -1,5 +1,22 @@
 .nfc
+.nfm
 .venv
+# NFC specific
+test_store/
+test_store_adv/
+test_store_manifest/
+client_store/
+client_store_2/
+client_store_dist/
+seed_store_1/
+seed_store_2/
+registry_store/
+bench_store/
+test_data/
+*.bin
+*.safetensors
+*.nfc
+*.nfm
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

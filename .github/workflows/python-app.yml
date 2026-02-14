@@ -1,0 +1,44 @@
+name: Python NFC CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .[full]
+    - name: Run all tests
+      run: |
+        # Run v0.1 through v2.0 tests
+        python tests/v010_test.py
+        python tests/v020_test.py
+        python tests/v030_test.py
+        python tests/v031_random_access_test.py
+        python tests/v040_test.py
+        python tests/v050_test.py
+        python tests/v100_ai_engine_test.py
+        python tests/v101_parallel_test.py
+        python tests/v110_safetensors_test.py
+        python tests/v120_diff_stats_test.py
+        python tests/v130_dedup_explorer_test.py
+        python tests/v150_advanced_features_test.py
+        python tests/v170_manifest_test.py
+        # Registry and Distributed tests might fail in CI due to port binding in restricted environments, 
+        # but let's try them.
+        python tests/v180_registry_test.py
+        python tests/v200_distributed_test.py

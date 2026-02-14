@@ -650,7 +650,7 @@ class NFCPrototype:
                 blk = hdr + fin.read(m_len + p_len + h_len)
                 if not (hdr[5] & self.INDEX_BLOCK_FLAG): fout.write(self.decompress(blk))
 
-if __name__ == "__main__":
+def main():
     import argparse, sys
     parser = argparse.ArgumentParser(description="NFC CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -705,3 +705,6 @@ if __name__ == "__main__":
             manifest = json.load(f)
         proto.prefetch_manifest(manifest)
     else: parser.print_help()
+
+if __name__ == "__main__":
+    main()
