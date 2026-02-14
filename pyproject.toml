@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexusforgecompress"
+version = "2.0.0"
+authors = [
+  { name="Quintin Reynecke", email="quintinreynecke@gmail.com" },
+]
+description = "The Neural File System: Lossless compression, deduplication, and distributed sharing for AI data."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.26.0",
+    "blosc>=1.11.1",
+    "rich",
+    "numba",
+    "requests",
+    "flask",
+    "safetensors",
+]
+
+[project.optional-dependencies]
+full = [
+    "neuralcompression>=0.2.0",
+    "torch",
+]
+
+[project.scripts]
+nfc = "nfc_prototype.core:main"
+
+[project.urls]
+"Homepage" = "https://github.com/QuintinReynecke/nexusforgecompress"
+"Bug Tracker" = "https://github.com/QuintinReynecke/nexusforgecompress/issues"
