@@ -21,7 +21,8 @@ nexusforgecompress-prototype/
 │   ├── v010_test.py        # Tests for v0.1.0 features.
 │   ├── v020_test.py        # Tests for v0.2.0 features.
 │   ├── v030_test.py        # Tests for v0.3.0 streaming features.
-│   └── v040_test.py        # Tests for v0.4.0 prediction features.
+│   ├── v040_test.py        # Tests for v0.4.0 prediction features.
+│   └── v050_test.py        # Tests for v0.5.0 prediction & blosc filter features.
 ├── .gitignore              # Specifies files to be ignored by Git.
 ├── CHANGELOG.md            # A log of all changes for each version.
 ├── CONTRIBUTING.md         # Guidelines for contributing to the project.
